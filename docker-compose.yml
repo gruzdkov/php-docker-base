@@ -1,0 +1,111 @@
+version: "3.7"
+
+services:
+    web:
+        container_name: ${PROJECT_SLUG}-web
+        environment:
+            - VIRTUAL_HOST=${VIRTUAL_HOST}
+        image: nginx:${NGINX_VERSION}
+        depends_on:
+            - mailhog
+            - php
+            - memcached
+            - mysql
+            - redis
+        links:
+            - mailhog:mailhog/mailhog
+            - mysql
+            - php
+        networks:
+            - frontend
+            - backend
+        volumes:
+            - ./app/_project:/var/www/html
+            - ./conf/nginx:/etc/nginx/conf.d
+            - ./logs/nginx:/var/log/nginx
+            - ./tmp:/tmp
+
+    php:
+        build:
+            context: ./php
+            args:
+                php_version: ${PHP_VERSION}
+                node_version: ${NODE_VERSION}
+        container_name: ${PROJECT_SLUG}-php
+        depends_on:
+            - mailhog
+            - memcached
+            - mysql
+            - redis
+        links:
+            - mailhog:mailhog/mailhog
+            - memcached
+            - mysql
+            - redis
+        networks:
+            - backend
+            - frontend
+        volumes:
+            - ./app/_project:/var/www/html
+            - ./conf/php/custom.ini:/usr/local/etc/php/conf.d/custom.ini
+            - ./tmp:/tmp
+        restart: on-failure
+        environment:
+            - VIRTUAL_PORT=3000
+            - VIRTUAL_HOST=ext.${VIRTUAL_HOST}
+
+    mysql:
+        container_name: ${PROJECT_SLUG}-mysql
+        env_file: .env
+        image: mysql:${MYSQL_VERSION}
+        networks:
+            - backend
+        restart: on-failure
+        volumes:
+            - ./data:/var/lib/mysql
+        command: --sql_mode=""
+
+    phpmyadmin:
+        container_name: ${PROJECT_SLUG}-pad
+        depends_on:
+            - mysql
+        environment:
+            - VIRTUAL_HOST=pad.${VIRTUAL_HOST}
+        image: phpmyadmin/phpmyadmin
+        links:
+            - mysql:db
+        networks:
+            - frontend
+            - backend
+
+    redis:
+        container_name: ${PROJECT_SLUG}-redis
+        image: redis
+        networks:
+            - backend
+        volumes:
+            - ./conf/redis/redis.conf:/etc/redis/redis.conf
+            - ./tmp:/tmp
+
+    memcached:
+        container_name: ${PROJECT_SLUG}-memcached
+        image: "bitnami/memcached:latest"
+        networks:
+            - backend
+
+    mailhog:
+        container_name: ${PROJECT_SLUG}-mailhog
+        image: mailhog/mailhog
+        environment:
+            - VIRTUAL_PORT=8025
+            - VIRTUAL_HOST=mail.${VIRTUAL_HOST}
+        networks:
+            - frontend
+            - backend
+
+networks:
+    frontend:
+        external:
+            name: reverse-proxy_rvproxy
+    backend:
+        driver: bridge
