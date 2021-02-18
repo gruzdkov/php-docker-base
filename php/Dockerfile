@@ -8,8 +8,10 @@ ARG node_version=12
 RUN . $HOME/.nvm/nvm.sh && nvm install ${node_version} && nvm alias default ${node_version} && nvm use default
 
 RUN apt-get update &&\
-    apt-get install --no-install-recommends --assume-yes --quiet ca-certificates htop vim curl git unzip &&\
+    apt-get install --no-install-recommends --assume-yes --quiet ca-certificates imagemagick libmagickwand-dev htop vim curl git unzip &&\
     rm -rf /var/lib/apt/lists/*
+RUN pecl install imagick
+RUN docker-php-ext-enable imagick
 RUN curl -Lsf 'https://storage.googleapis.com/golang/go1.8.3.linux-amd64.tar.gz' | tar -C '/usr/local' -xvzf -
 ENV PATH /usr/local/go/bin:$PATH
 RUN go get github.com/mailhog/mhsendmail
